@@ -55,4 +55,13 @@ describe PgQuery, '#filter_columns' do
     expect(simple_where_conditions(query)).to eq [['z', '=', 10]]
   end
 
+  it 'is able to parse IS (T/F) and IS NOT (T/F)' do
+    query = "SELECT * FROM x WHERE a IS TRUE and b IS NOT FALSE"
+    expect(simple_where_conditions(query)).to eq [['a', 'IS', "TRUE"], ['b', 'IS NOT', "FALSE"]]
+  end
+
+  it 'is able to parse null tests' do
+    query = "SELECT * FROM x WHERE a IS NULL and b IS NOT NULL"
+    expect(simple_where_conditions(query)).to eq [['a', 'IS', 'NULL'], ['b', 'IS NOT', 'NULL']]
+  end
 end

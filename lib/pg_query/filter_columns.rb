@@ -8,15 +8,15 @@ class PgQuery
       if @aexpr["lexpr"].is_a?(Hash) && @aexpr["rexpr"].is_a?(Hash)
         hsh = @aexpr["lexpr"].merge(@aexpr["rexpr"])
 
-        if hsh["A_Const"] && hsh["ColumnRef"]
-          @val = fetch_val(hsh["A_Const"]["val"])
-          @var = hsh["ColumnRef"]["fields"].map{|f| fetch_val(f)}.join(".")
+        if hsh[A_CONST] && hsh[COLUMN_REF]
+          @val = fetch_val(hsh[A_CONST]["val"])
+          @var = hsh[COLUMN_REF]["fields"].map{|f| fetch_val(f)}.join(".")
         else
           @val = @var = nil
         end
       elsif get_name.downcase == "between"
-        @var = @aexpr["lexpr"]["ColumnRef"]["fields"].map{|f| fetch_val(f)}.join(".")
-        @val = @aexpr["rexpr"].map{|hsh| fetch_val(hsh["A_Const"]["val"]) }
+        @var = @aexpr["lexpr"][COLUMN_REF]["fields"].map{|f| fetch_val(f)}.join(".")
+        @val = @aexpr["rexpr"].map{|hsh| fetch_val(hsh[A_CONST]["val"]) }
       else
         @var = @val = nil
       end
@@ -101,7 +101,7 @@ class PgQuery
         end
       end
 
-      # Process both JOIN and WHERE conditions here
+      # Process both JOIN and WHERE condition_items here
       next_item = condition_items.shift
       if next_item
         if next_item[A_EXPR]
@@ -179,6 +179,18 @@ class PgQuery
         end
       end
 
+      bool_test = {
+        0 => ["IS", "TRUE"],
+        1 => ["IS NOT", "TRUE"],
+        2 => ["IS", "FALSE"],
+        3 => ["IS NOT", "FALSE"]
+      }
+
+      null_test = {
+        0 => ["IS", "NULL"],
+        1 => ["IS NOT", "NULL"]
+      }
+
       # Process both JOIN and WHERE conditions here
       next_item = condition_items.shift
       if next_item
@@ -204,6 +216,20 @@ class PgQuery
           filter_columns << [@aliases[table] || table, column]
         elsif next_item[NULL_TEST]
           condition_items << next_item[NULL_TEST]['arg']
+
+          # Add nulltest to conditions (var IS NULL...)
+          if next_item[NULL_TEST]['arg'][COLUMN_REF]
+            var = next_item[NULL_TEST]['arg'][COLUMN_REF]['fields'].map { |f| f['String']['str'] }.join(".")
+            conditions << [var, null_test[next_item[NULL_TEST]['nulltesttype'].to_i]].flatten
+          end
+        elsif next_item[BOOLEAN_TEST]
+          condition_items << next_item[BOOLEAN_TEST]['arg']
+
+          # Add nulltest to conditions (var IS NULL...)
+          if next_item[BOOLEAN_TEST]['arg'][COLUMN_REF]
+            var = next_item[BOOLEAN_TEST]['arg'][COLUMN_REF]['fields'].map { |f| f['String']['str'] }.join(".")
+            conditions << [var, bool_test[next_item[BOOLEAN_TEST]['booltesttype'].to_i]].flatten
+          end
         elsif next_item[FUNC_CALL]
           # FIXME: This should actually be extracted as a funccall and be compared with those indices
           condition_items += next_item[FUNC_CALL]['args'] if next_item[FUNC_CALL]['args']
