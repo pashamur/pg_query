@@ -5,7 +5,10 @@ class PgQuery
     def initialize(aexpr)
       @aexpr = aexpr
 
-      if @aexpr["lexpr"].is_a?(Hash) && @aexpr["rexpr"].is_a?(Hash)
+      if @aexpr["kind"] == AEXPR_IN # IN condition
+        @var = @aexpr["lexpr"][COLUMN_REF]["fields"].map{|f| fetch_val(f)}.join(".")
+        @val = "(" + @aexpr["rexpr"].map{|f| fetch_val(f[A_CONST]["val"])}.join(",") + ")"
+      elsif @aexpr["lexpr"].is_a?(Hash) && @aexpr["rexpr"].is_a?(Hash)
         hsh = @aexpr["lexpr"].merge(@aexpr["rexpr"])
 
         if hsh[A_CONST] && hsh[COLUMN_REF]
@@ -42,6 +45,7 @@ class PgQuery
     end
 
     def get_name
+      return "IN" if @aexpr["kind"] == AEXPR_IN
       fetch_val(@aexpr["name"].first)
     end
 
@@ -180,10 +184,10 @@ class PgQuery
       end
 
       bool_test = {
-        0 => ["IS", "TRUE"],
-        1 => ["IS NOT", "TRUE"],
-        2 => ["IS", "FALSE"],
-        3 => ["IS NOT", "FALSE"]
+        0 => ["IS", true],
+        1 => ["IS NOT", true],
+        2 => ["IS", false],
+        3 => ["IS NOT", false]
       }
 
       null_test = {
