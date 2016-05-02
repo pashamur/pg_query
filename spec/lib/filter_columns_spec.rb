@@ -65,9 +65,14 @@ describe PgQuery, '#filter_columns' do
     expect(simple_where_conditions(query)).to eq [['a', 'IS', 'NULL'], ['b', 'IS NOT', 'NULL']]
   end
 
-  it 'is able to parse null tests' do
+  it 'is able to parse integer IN conditions' do
     query = "SELECT * FROM x WHERE a IN (1,2,3)"
     expect(simple_where_conditions(query)).to eq [['a', 'IN', '(1,2,3)']]
+  end
+
+  it 'is able to parse string IN conditions' do
+    query = "SELECT * FROM x WHERE a IN ('a','b','c')"
+    expect(simple_where_conditions(query)).to eq [['a', 'IN', "('a','b','c')"]]
   end
 
 end

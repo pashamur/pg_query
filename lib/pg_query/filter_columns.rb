@@ -7,7 +7,7 @@ class PgQuery
 
       if @aexpr["kind"] == AEXPR_IN # IN condition
         @var = @aexpr["lexpr"][COLUMN_REF]["fields"].map{|f| fetch_val(f)}.join(".")
-        @val = "(" + @aexpr["rexpr"].map{|f| fetch_val(f[A_CONST]["val"])}.join(",") + ")"
+        @val = "(" + @aexpr["rexpr"].map{|f| fetch_val(f[A_CONST]["val"], true)}.join(",") + ")"
       elsif @aexpr["lexpr"].is_a?(Hash) && @aexpr["rexpr"].is_a?(Hash)
         hsh = @aexpr["lexpr"].merge(@aexpr["rexpr"])
 
@@ -25,9 +25,9 @@ class PgQuery
       end
     end
 
-    def fetch_val(segment)
+    def fetch_val(segment, quote=false)
       if segment.keys[0].downcase == "string"
-        segment.values[0]["str"]
+        quote ? "'#{segment.values[0]['str']}'" : segment.values[0]["str"]
       elsif segment.keys[0].downcase == "integer"
         segment.values[0]["ival"]
       elsif segment.keys[0].downcase == "float"
