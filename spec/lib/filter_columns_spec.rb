@@ -75,4 +75,13 @@ describe PgQuery, '#filter_columns' do
     expect(simple_where_conditions(query)).to eq [['a', 'IN', "('a','b','c')"]]
   end
 
+  it 'handles IN with functions (ignores)' do
+    query = "SELECT * FROM \"translated_blocks\" WHERE a = 5 AND (md5(content) IN (md5('Test content')))"
+    expect(simple_where_conditions(query)).to eq [['a', '=', 5]]
+  end
+
+  it 'handles = true' do
+    query = "SELECT * FROM \"translated_blocks\" WHERE a = true"
+    expect(simple_where_conditions(query)).to eq [['a', '=', true]]
+  end
 end

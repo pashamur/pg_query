@@ -6,17 +6,21 @@ class PgQuery
       @aexpr = aexpr
 
       if @aexpr["kind"] == AEXPR_IN # IN condition
-        @var = @aexpr["lexpr"][COLUMN_REF]["fields"].map{|f| fetch_val(f)}.join(".")
-        @val = "(" + @aexpr["rexpr"].map{|f| fetch_val(f[A_CONST]["val"], true)}.join(",") + ")"
+        @var = @aexpr.fetch("lexpr").fetch(COLUMN_REF).fetch("fields").map{|f| fetch_val(f)}.join(".") rescue nil
+        @val = "(" + @aexpr.fetch("rexpr").map{|f| fetch_val(f.fetch(A_CONST).fetch("val"), true)}.join(",") + ")" rescue nil
+      elsif is_bool_typecast(@aexpr["rexpr"]) || is_bool_typecast(@aexpr["lexpr"])
+        if is_bool_typecast(@aexpr["rexpr"])
+          @var = @aexpr.fetch("lexpr").fetch(COLUMN_REF).fetch("fields").map{|f| fetch_val(f)}.join(".") rescue nil
+          @val = get_bool_typecast(@aexpr["rexpr"])
+        else
+          @var = @aexpr.fetch("rexpr").fetch(COLUMN_REF).fetch("fields").map{|f| fetch_val(f)}.join(".") rescue nil
+          @val = get_bool_typecast(@aexpr["lexpr"])
+        end
       elsif @aexpr["lexpr"].is_a?(Hash) && @aexpr["rexpr"].is_a?(Hash)
         hsh = @aexpr["lexpr"].merge(@aexpr["rexpr"])
 
-        if hsh[A_CONST] && hsh[COLUMN_REF]
-          @val = fetch_val(hsh[A_CONST]["val"])
-          @var = hsh[COLUMN_REF]["fields"].map{|f| fetch_val(f)}.join(".")
-        else
-          @val = @var = nil
-        end
+        @val = fetch_val(hsh[A_CONST]["val"]) rescue nil
+        @var = hsh[COLUMN_REF]["fields"].map{|f| fetch_val(f)}.join(".") rescue nil
       elsif get_name.downcase == "between"
         @var = @aexpr["lexpr"][COLUMN_REF]["fields"].map{|f| fetch_val(f)}.join(".")
         @val = @aexpr["rexpr"].map{|hsh| fetch_val(hsh[A_CONST]["val"]) }
@@ -33,6 +37,15 @@ class PgQuery
       elsif segment.keys[0].downcase == "float"
         segment.values[0]["str"].to_f
       end
+    end
+
+    def is_bool_typecast(expr)
+      return false unless expr.is_a?(Hash) && expr["TypeCast"]
+      return expr["TypeCast"]["typeName"]["TypeName"]["names"].map{|r| r["String"]["str"]}[1] == 'bool' rescue false
+    end
+
+    def get_bool_typecast(expr)
+      expr["TypeCast"]["arg"]["A_Const"]["val"]["String"]["str"] == 't' ? true : false
     end
 
     def get_conditions
